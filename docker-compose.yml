@@ -1,0 +1,20 @@
+version: "2.4"
+
+services:
+    android-build:
+        image: android:10.0
+        container_name: android-build        
+        stdin_open: true
+        tty: true
+        build:
+          context: ./xperia
+        volumes:
+        - type: bind
+          source: /srv/android/aosp
+          target: /root/aosp
+        - type: bind
+          source: /srv/android/mirror
+          target: /root/mirror
+        - type: bind
+          source: /srv/android/ccache
+          target: /root/ccache
