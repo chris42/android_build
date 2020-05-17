@@ -8,7 +8,7 @@ services:
         tty: true
         build:
           context: ./xperia
-        environment:
+          args:
           - GIT_USER=anonymous
           - GIT_EMAIL=anonymous@example.com
         volumes:
