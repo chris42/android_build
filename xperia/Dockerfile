@@ -27,16 +27,14 @@ ENV SIGN_BUILDS=false
 ENV REBUILD_KERNEL=true
 ENV BUILD_ONLY=false
 
-ARG GIT_USER=to-be-changed
-ARG GIT_EMAIL=to-be-changed@to-be.changed
-ARG DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install needed packages
 RUN dpkg --add-architecture i386
-RUN apt-get -o Acquire::ForceIPv4=true update
+RUN apt-get update
 RUN apt-get purge -y openjdk-\* icedtea-\* icedtea6-\*
-RUN apt-get -o Acquire::ForceIPv4=true upgrade -y
-RUN apt-get -o Acquire::ForceIPv4=true install -y \
+RUN apt-get upgrade -y
+RUN apt-get install -y \
     bc \
     bison \
     ccache \
@@ -53,7 +51,7 @@ RUN apt-get -o Acquire::ForceIPv4=true install -y \
     make \
     nano \
     openjdk-8-jdk \
-    python2.7 \
+    python3 \
     rsync \
     software-properties-common \
     wget \
@@ -63,10 +61,11 @@ RUN apt-get -o Acquire::ForceIPv4=true install -y \
 RUN rm -rf /var/lib/apt/lists/*
 
 #Link python
-RUN ln -s /usr/bin/python2.7 /usr/bin/python
+RUN ln -s /usr/bin/python3.6 /usr/bin/python
 
 # Download Repo Tool
 RUN curl https://storage.googleapis.com/git-repo-downloads/repo > /usr/local/bin/repo
+RUN chmod +x /usr/local/bin/repo
 RUN chmod 755 /usr/local/bin/repo
 
 # Create Git Config
@@ -108,7 +107,7 @@ RUN mkdir -p "$PATCH_DIR"
 
 # Add files
 COPY ./build-10-4.9.sh /root/build-10-4.9.sh
-RUN chmod +x /root/build-10-4.*.sh
+RUN chmod +x /root/build-10-4.9.sh
 COPY ./android_frameworks_base-Q.patch "$PATCH_DIR"/android_frameworks_base-Q.patch
 ENV __FLUSH_LOG yes
 #ENTRYPOINT ["/root/build-10-4.9.sh"]

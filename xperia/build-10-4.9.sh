@@ -36,12 +36,14 @@ prepare_sources() {
         kernel/sony/msm-4.9/kernel \
         kernel/sony/msm-4.9/common-kernel \
         device/sony/kugo \
-        frameworks/base
+        device/sony/loire \
+        frameworks/base \
+        frameworks/opt/net/wifi
     do
         if [ -d $path ]; then
             pushd $path
                 git clean -d -f -e "*dtb*"
-                git reset --hard m/$ANDROID_VERSION
+                git reset --hard m/$TARGET_ANDROID_VERSION
             popd
         fi
     done
@@ -75,7 +77,6 @@ EOF
     ./repo_update.sh
 
     pushd device/sony/common
-
         # Patch Thermal HW module to silence crash 1/2
         cat >>common-packages.mk <<EOF
 
@@ -86,11 +87,8 @@ EOF
     popd
 
     pushd kernel/sony/msm-4.9/kernel
-        # TMP:Add vknecht WLAN updates (stops disconnect on idle)
-        _pick_pr sony 2188 24
-
-        # TMP:Linux 4.9.215
-        _pick_pr sony 2210
+        # Test: Kernel .221
+        _pick_pr sony 2244 3
     popd
 
     pushd device/sony/sepolicy
@@ -129,6 +127,13 @@ EOF
         # Add signature spoofing for microg
         patch -p1 < $PATCH_DIR/android_frameworks_base-Q.patch
     popd
+
+    pushd frameworks/opt/net/wifi
+        # Prevent WifiLayerLinkStatsError
+        git fetch https://github.com/LineageOS/android_frameworks_opt_net_wifi refs/changes/24/260124/3
+        git cherry-pick 119f4e61cd2164a56ebc4caba8ec735e36f70422
+    popd
+
 }
 
 # --------------------------------------------------------------------
@@ -139,8 +144,27 @@ start=`date +%s`
 
 cd $WORK_DIR
 
-ANDROID_VERSION=android-10.0.0_r30
-SONY_VERSION=android-10.0.0_r30
+# Read android branch from initialized repo
+CURRENT_ANDROID_VERSION=`cat .repo/manifests/default.xml|grep default\ revision|sed 's#^.*refs/tags/\(.*\)"#\1#1'`
+#CURRENT_ANDROID_VERSION=android-10.0.0_r36
+
+TARGET_ANDROID_VERSION=android-10.0.0_r36
+
+# Hard cleanup on branch change
+if [ $CURRENT_ANDROID_VERSION != $TARGET_ANDROID_VERSION ]; then
+    cd ..
+    rm -r $WORK_DIR/*
+    rm -r $WORK_DIR/.*
+    mkdir -p $WORK_DIR
+    cd $WORK_DIR
+    repo init -u $MIRROR_DIR/platform/manifest.git -b $TARGET_ANDROID_VERSION
+    pushd .repo
+        git clone https://github.com/sonyxperiadev/local_manifests -b android-10_legacy
+    popd
+    repo sync
+    BUILD_ONLY=false
+    REBUILD_KERNEL=true
+fi
 
 # Only resync sources when needed
 if [ $BUILD_ONLY = false ]; then
@@ -156,7 +180,7 @@ if [ $BUILD_ONLY = false ]; then
 fi
 
 # Only rebuild kernel when needed
-if [ $REBUILD_KERNEL = true ]; then 
+if [ $REBUILD_KERNEL = true ]; then
     pushd kernel/sony/msm-4.9/common-kernel
         PLATFORM_UPPER=`echo $PLATFORM|tr '[:lower:]' '[:upper:]'`
         sed -i "s/PLATFORMS=.*/PLATFORMS=$PLATFORM/1" build-kernels-gcc.sh
@@ -168,4 +192,4 @@ fi
 
 ccache make -j`nproc --all` dist
 
-echo "Compiled branch '$ANDROID_VERSION' in: $((($(date +%s)-$start)/60)) minutes"
+echo "Compiled branch '$TARGET_ANDROID_VERSION' in: $((($(date +%s)-$start)/60)) minutes"

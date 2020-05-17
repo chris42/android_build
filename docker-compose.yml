@@ -3,11 +3,14 @@ version: "2.4"
 services:
     android-build:
         image: android:10.0
-        container_name: android-build        
+        container_name: android-build
         stdin_open: true
         tty: true
         build:
           context: ./xperia
+        environment:
+          - GIT_USER=anonymous
+          - GIT_EMAIL=anonymous@example.com
         volumes:
         - type: bind
           source: /srv/android/aosp
