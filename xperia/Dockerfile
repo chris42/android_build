@@ -1,6 +1,9 @@
 # Build a dockerfile for building android
 FROM ubuntu:bionic
 
+ARG GIT_USER
+ARG GIT_EMAIL
+
 # Setting directories
 ENV MIRROR_DIR=/root/mirror
 ENV WORK_DIR=/root/aosp
@@ -25,7 +28,8 @@ ENV PLATFORM=loire
 ENV DEVICE=kugo
 ENV SIGN_BUILDS=false
 ENV REBUILD_KERNEL=true
-ENV BUILD_ONLY=false
+ENV PREPARE_SOURCES=true
+ENV CLEAN_BUILD=true
 
 ENV DEBIAN_FRONTEND=noninteractive
 

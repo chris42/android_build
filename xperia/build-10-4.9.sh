@@ -30,15 +30,14 @@ prepare_sources() {
     fi
 
     for path in \
+        frameworks/base \
+        frameworks/opt/net/wifi \
+        device/sony/loire \
+        device/sony/kugo \
         device/sony/common \
         device/sony/sepolicy \
-        device/sony/$PLATFORM \
         kernel/sony/msm-4.9/kernel \
-        kernel/sony/msm-4.9/common-kernel \
-        device/sony/kugo \
-        device/sony/loire \
-        frameworks/base \
-        frameworks/opt/net/wifi
+        kernel/sony/msm-4.9/common-kernel
     do
         if [ -d $path ]; then
             pushd $path
@@ -59,52 +58,25 @@ prepare_sources() {
         # --------------------------------------------------------------------
         # Add microg prebuilts manifest
         # --------------------------------------------------------------------
-        cat >prebuilt.xml <<EOF
+        cat >customization.xml <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest>
 
 <remote name="github" fetch="https://github.com/" />
 
 <project path="device/sony/customization/prebuiltapks" name="chris42/android_prebuilts_prebuiltapks" remote="github" revision="master" />
+<project path="device/sony/customization/overlays" name="chris42/android_packages_overlays" remote="github" revision="master" />
 
 </manifest>
 EOF
     popd
 
+    ./repo_update.sh
+
     # --------------------------------------------------------------------
     # Additional patching
     # --------------------------------------------------------------------
-    ./repo_update.sh
-
-    pushd device/sony/common
-        # Patch Thermal HW module to silence crash 1/2
-        cat >>common-packages.mk <<EOF
-
-# Default thermal hw module:
-PRODUCT_PACKAGES += \
-    thermal.default
-EOF
-    popd
-
-    pushd kernel/sony/msm-4.9/kernel
-        # Test: Kernel .221
-        _pick_pr sony 2244 3
-    popd
-
-    pushd device/sony/sepolicy
-        # Patch Thermal HW module to silence crash 2/2
-        cat >vendor/hal_thermal_default.te <<EOF
-allow hal_thermal_default sysfs_thermal:dir r_dir_perms;
-allow hal_thermal_default sysfs_thermal:file rw_file_perms;
-allow hal_thermal_default proc_stat:file r_file_perms;
-
-# allow hal_thermal_default self:netlink_kobject_uevent_socket create_socket_perms_no_ioctl;
-
-# read thermal_config
-# get_prop(hal_thermal_default, vendor_thermal_prop)
-EOF
-    popd
-
+    
     pushd device/sony/customization
        	# Add microg and prebuilts to device
         cat >customization.mk <<EOF
@@ -114,7 +86,8 @@ PRODUCT_PACKAGES += \
     GsfProxy \
     OpenCamera \
     FDroid \
-    BromiteSystemWebView
+    BromiteSystemWebView \
+    NetworkStackCaptiveOverlay
 #   DejaVuNlpBackend
 #   NominatimNlpBackend
 #   LocalGSMNlpBackend
@@ -146,28 +119,29 @@ cd $WORK_DIR
 
 # Read android branch from initialized repo
 CURRENT_ANDROID_VERSION=`cat .repo/manifests/default.xml|grep default\ revision|sed 's#^.*refs/tags/\(.*\)"#\1#1'`
-#CURRENT_ANDROID_VERSION=android-10.0.0_r36
+#CURRENT_ANDROID_VERSION=android-10.0.0_r34
 
-TARGET_ANDROID_VERSION=android-10.0.0_r36
+TARGET_ANDROID_VERSION=android-10.0.0_r39
 
-# Hard cleanup on branch change
+# Cleanup on branch change
 if [ $CURRENT_ANDROID_VERSION != $TARGET_ANDROID_VERSION ]; then
     cd ..
     rm -r $WORK_DIR/*
-    rm -r $WORK_DIR/.*
+    rm -r $WORK_DIR/.repo
     mkdir -p $WORK_DIR
     cd $WORK_DIR
     repo init -u $MIRROR_DIR/platform/manifest.git -b $TARGET_ANDROID_VERSION
     pushd .repo
         git clone https://github.com/sonyxperiadev/local_manifests -b android-10_legacy
     popd
-    repo sync
-    BUILD_ONLY=false
+    repo sync --current-branch --no-tags
+    PREPARE_SOURCES=true
+    CLEAN_BUILD=true
     REBUILD_KERNEL=true
 fi
 
 # Only resync sources when needed
-if [ $BUILD_ONLY = false ]; then
+if [ $PREPARE_SOURCES = true ]; then
     prepare_sources
 fi
 
@@ -175,7 +149,7 @@ fi
 lunch $DEVICE_FLAVOUR
 
 # Only cleanup when needed
-if [ $BUILD_ONLY = false ]; then
+if [ $CLEAN_BUILD = true ]; then
     make clean
 fi
 
